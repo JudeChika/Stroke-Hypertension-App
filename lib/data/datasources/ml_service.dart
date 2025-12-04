@@ -1,5 +1,5 @@
 import 'dart:developer';
-import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:tflite_flutter_plus/tflite_flutter_plus.dart';
 
 class MLService {
   Interpreter? _interpreter;

@@ -3,8 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/auth_repository.dart';
-import '../dashboard/dashboard_screen.dart'; // Navigate here on success
-import 'login_screen.dart'; // To go back
+import 'login_screen.dart'; // Navigate here after signup
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -35,8 +34,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     super.dispose();
   }
 
-  // --- Logic: Mock Sign Up Function ---
-  // Inside _SignUpScreenState
+  // --- FIXED: Sign Up Logic with Navigation to Login ---
   Future<void> _handleSignUp() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
@@ -50,18 +48,35 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         );
 
         if (mounted) {
-          // Success! Go to Dashboard
-          Navigator.pushAndRemoveUntil(
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Account created successfully! Please login.'),
+              backgroundColor: AppTheme.primaryGreen,
+              duration: Duration(seconds: 3),
+            ),
+          );
+
+          // Navigate to Login Screen (replacing current screen)
+          Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const DashboardScreen()),
-                (route) => false,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
           );
         }
       } catch (e) {
-        // Show Error SnackBar
+        // Show Error SnackBar with detailed message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('❌ ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'DISMISS',
+                textColor: Colors.white,
+                onPressed: () {},
+              ),
+            ),
           );
         }
       } finally {
@@ -85,7 +100,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 top: 0,
                 left: 0,
                 right: 0,
-                height: size.height * 0.30, // Slightly smaller than Login header
+                height: size.height * 0.30,
                 child: Container(
                   decoration: const BoxDecoration(
                     color: AppTheme.primaryGreen,
@@ -130,7 +145,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 top: size.height * 0.24,
                 left: 20,
                 right: 20,
-                bottom: 20, // Allow card to stretch down if needed
+                bottom: 20,
                 child: SingleChildScrollView(
                   child: Container(
                     padding: const EdgeInsets.all(24),
@@ -139,7 +154,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
+                          color: Colors.black.withOpacity(0.1),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
@@ -164,12 +179,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           TextFormField(
                             controller: _nameController,
                             keyboardType: TextInputType.name,
+                            enabled: !_isLoading,
                             decoration: const InputDecoration(
                               labelText: "Full Name",
                               prefixIcon: Icon(Icons.badge_outlined, color: AppTheme.primaryGreen),
                             ),
                             validator: (value) =>
-                            value != null && value.isNotEmpty ? null : 'Name is required',
+                            value != null && value.trim().isNotEmpty ? null : 'Name is required',
                           ).animate().slideX(begin: -0.2, duration: 300.ms),
 
                           const SizedBox(height: 15),
@@ -178,12 +194,20 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
+                            enabled: !_isLoading,
                             decoration: const InputDecoration(
                               labelText: "Email Address",
                               prefixIcon: Icon(Icons.email_outlined, color: AppTheme.primaryGreen),
                             ),
-                            validator: (value) =>
-                            value != null && value.contains('@') ? null : 'Enter a valid email',
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Email is required';
+                              }
+                              if (!value.contains('@') || !value.contains('.')) {
+                                return 'Enter a valid email address';
+                              }
+                              return null;
+                            },
                           ).animate().slideX(begin: -0.2, delay: 100.ms, duration: 300.ms),
 
                           const SizedBox(height: 15),
@@ -192,6 +216,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: !_isPasswordVisible,
+                            enabled: !_isLoading,
                             decoration: InputDecoration(
                               labelText: "Password",
                               prefixIcon: const Icon(Icons.lock_outline, color: AppTheme.primaryGreen),
@@ -200,8 +225,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                 onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                               ),
                             ),
-                            validator: (value) =>
-                            value != null && value.length >= 6 ? null : 'Min 6 characters',
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Password is required';
+                              }
+                              if (value.length < 6) {
+                                return 'Password must be at least 6 characters';
+                              }
+                              return null;
+                            },
                           ).animate().slideX(begin: -0.2, delay: 200.ms, duration: 300.ms),
 
                           const SizedBox(height: 15),
@@ -210,6 +242,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           TextFormField(
                             controller: _confirmPasswordController,
                             obscureText: !_isConfirmPasswordVisible,
+                            enabled: !_isLoading,
                             decoration: InputDecoration(
                               labelText: "Confirm Password",
                               prefixIcon: const Icon(Icons.lock_clock_outlined, color: AppTheme.primaryGreen),
@@ -238,7 +271,21 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                 foregroundColor: AppTheme.textBlack,
                               ),
                               child: _isLoading
-                                  ? const CircularProgressIndicator(color: AppTheme.textBlack)
+                                  ? const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      color: AppTheme.textBlack,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text("CREATING ACCOUNT..."),
+                                ],
+                              )
                                   : const Text("REGISTER"),
                             ),
                           ).animate().slideY(begin: 0.5, delay: 400.ms, curve: Curves.easeOut),
@@ -251,17 +298,16 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                             children: [
                               const Text("Already a member? "),
                               GestureDetector(
-                                onTap: () {
-                                  // Navigate to Login Screen
-                                  Navigator.push(
+                                onTap: _isLoading ? null : () {
+                                  Navigator.pushReplacement(
                                     context,
                                     MaterialPageRoute(builder: (context) => const LoginScreen()),
                                   );
                                 },
-                                child: const Text(
+                                child: Text(
                                   "Login",
                                   style: TextStyle(
-                                    color: AppTheme.primaryGreen,
+                                    color: _isLoading ? Colors.grey : AppTheme.primaryGreen,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

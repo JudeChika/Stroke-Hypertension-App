@@ -1,48 +1,51 @@
 name: stroke_hypertension_app
-description: A new Flutter project for stroke and hypertension detection.
+description: "A new Flutter project for stroke and hypertension detection."
+
 publish_to: 'none'
+
+
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: ^3.8.1
 
 dependencies:
   flutter:
     sdk: flutter
 
   # --- UI & Animations (The "Flair") ---
-  flutter_animate: ^4.5.0       # For sleek entrance animations
+  flutter_animate: ^4.5.2       # For sleek entrance animations
   google_fonts: ^6.1.0          # Professional typography
-  percent_indicator: ^4.2.3     # For the Risk Score circular gauge
-  lottie: ^3.1.0                # For vector success animations
+  percent_indicator: ^4.2.5     # For the Risk Score circular gauge
+  lottie: 3.1.0                 # Pinned for compatibility
 
   # --- State Management (The Architecture) ---
-  flutter_riverpod: ^2.4.9      # For robust state management
-  equatable: ^2.0.5             # Value equality for clean architecture
+  flutter_riverpod: ^2.6.1      # Downgraded to a very stable version
+  equatable: ^2.0.5             # Compatible with older Riverpod
 
   # --- Backend (Firebase) ---
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.16.0        # Login/Signup
-  cloud_firestore: ^4.14.0      # Storing User Data & Readings
+  firebase_core: ^3.1.0
+  firebase_auth: ^5.1.0
+  cloud_firestore: ^5.0.1
 
   # --- Machine Learning & Logic ---
-  tflite_flutter: ^0.11.0       # Update to latest version
-  hive: ^2.2.3                  # Local Database (Offline mode)
-  hive_flutter: ^1.1.0
+  # Switch to tflite_flutter_plus to avoid Uint8List error
+  tflite_flutter_plus: ^0.0.1
 
   # --- Utilities ---
   intl: ^0.19.0                 # Date formatting
 
+  cupertino_icons: ^1.0.8
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^3.0.0         # Downgraded lints to be safe
 
-# --- Asset Registration ---
+
 flutter:
   uses-material-design: true
 
-  # We will create these folders in Step 4
   assets:
     - assets/models/
     - assets/images/
