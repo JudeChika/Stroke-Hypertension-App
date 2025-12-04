@@ -1,7 +1,7 @@
+// Update to rely on readings stream; on save we now pop back so stream updates the dashboard automatically.
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:stroke_hypertension_app/presentation/screens/dashboard/dashboard_screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/datasources/ml_service.dart';
 import '../../../data/repositories/reading_repository.dart';
@@ -16,8 +16,6 @@ class ManualInputScreen extends ConsumerStatefulWidget {
 class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
   final MLService _mlService = MLService();
 
-  // --- Form State Variables ---
-  // We use sensible defaults so the UI looks populated initially
   double _systolic = 120;
   double _diastolic = 80;
   double _age = 30;
@@ -28,7 +26,6 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
   @override
   void initState() {
     super.initState();
-    // Load the model when screen opens
     _mlService.initialize();
   }
 
@@ -38,25 +35,22 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
     super.dispose();
   }
 
-  // --- Logic: Mock Calculation ---
   Future<void> _calculateRisk() async {
     setState(() => _isCalculating = true);
 
     try {
-      // 1. Get Prediction
       final riskProbability = await _mlService.predict(
         age: _age,
         bmi: _bmi,
-        isMale: true, // You can add a switch for this in UI later
-        isMarried: true, // You can add a switch for this in UI later
+        isMale: true,
+        isMarried: true,
         isUrban: true,
         isSmoker: _isSmoker,
-        hasHypertension: _systolic > 140, // Auto-detect based on BP input!
+        hasHypertension: _systolic > 140,
         hasHeartDisease: false,
-        avgGlucose: 100.0, // Default average if not collecting
+        avgGlucose: 100.0,
       );
 
-      // 2. Save to Firebase
       await ref.read(readingRepositoryProvider).saveReading(
         systolic: _systolic,
         diastolic: _diastolic,
@@ -65,8 +59,8 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
 
       if (mounted) {
         setState(() => _isCalculating = false);
-        // Pass the real risk value to the dialog
-        _showResultDialog(riskProbability);
+        // Pop back to dashboard (dashboard listens to the readings stream and will update automatically)
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -79,52 +73,13 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
   }
 
   void _showResultDialog(double score) {
-    // formatting score to percentage
-    String percentage = (score * 100).toStringAsFixed(1);
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.check_circle_outline, size: 60, color: AppTheme.primaryGreen)
-                .animate().scale(curve: Curves.elasticOut),
-            const SizedBox(height: 16),
-            Text("Risk Score: $percentage%", style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            const Text(
-              "Your stroke risk profile has been updated based on these readings.",
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const DashboardScreen()),
-                  );
-                },
-                child: const Text("View Dashboard"),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    // unused now because we pop back, kept for completeness
   }
 
   @override
   Widget build(BuildContext context) {
+    // (unchanged UI; same as before) ...
+    // We reuse your previous build() body but make sure the "View Dashboard" button (if shown) pops instead of pushing another instance.
     return Scaffold(
       appBar: AppBar(
         title: const Text("Log Vitals"),
@@ -135,7 +90,6 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // --- Header Text ---
             Text(
               "Enter your current readings",
               textAlign: TextAlign.center,
@@ -146,6 +100,9 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
 
             const SizedBox(height: 24),
 
+            // BP sliders & other UI sections (kept same as before)...
+            // For brevity I will reuse the original helper methods already in file.
+            // Use the same widget tree as your existing screen — only the navigation after save changed.
             // --- Card 1: Blood Pressure Sliders ---
             _buildSectionCard(
               title: "Blood Pressure",
@@ -177,7 +134,6 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
 
             const SizedBox(height: 20),
 
-            // --- Card 2: Personal Factors ---
             _buildSectionCard(
               title: "Risk Factors",
               icon: Icons.person_outline,
@@ -203,8 +159,6 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
                     onChanged: (val) => setState(() => _bmi = val),
                   ),
                   const Divider(height: 30),
-
-                  // Smoking Switch
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text("Do you smoke?", style: TextStyle(fontWeight: FontWeight.w600)),
@@ -219,7 +173,6 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
 
             const SizedBox(height: 30),
 
-            // --- Calculate Button ---
             SizedBox(
               height: 55,
               child: ElevatedButton(
@@ -247,7 +200,7 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
     );
   }
 
-  // --- Helper Widget: White Card Container ---
+  // Helper widgets (kept as-is from your previous implementation)
   Widget _buildSectionCard({
     required String title,
     required IconData icon,
@@ -285,7 +238,6 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
     );
   }
 
-  // --- Helper Widget: Custom Slider Row ---
   Widget _buildSlider({
     required String label,
     required double value,
@@ -325,7 +277,7 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
             value: value,
             min: min,
             max: max,
-            divisions: (max - min).toInt(), // Snap to integers
+            divisions: (max - min).toInt(),
             onChanged: onChanged,
           ),
         ),
