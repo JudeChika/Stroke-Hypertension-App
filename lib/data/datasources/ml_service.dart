@@ -1,38 +1,30 @@
 import 'dart:developer';
-import 'package:tflite_flutter_plus/tflite_flutter_plus.dart';
 
+/// Lightweight MLService stub (no tflite dependency).
+/// - Use this to unblock builds while you fix/upgrade the tflite plugin.
+/// - It returns a heuristic probability [0.0 .. 1.0] based on inputs.
+/// - When you re-add tflite, replace this with your Interpreter-based logic.
 class MLService {
-  Interpreter? _interpreter;
+  bool _initialized = false;
 
-  // --- 1. MAGIC NUMBERS (From your Jupyter Notebook) ---
-  // Replace these with the EXACT numbers your notebook printed out!
-  // I have put placeholders here based on standard dataset values.
-
-  // MEANS (The average of the training data)
+  // --- MAGIC NUMBERS (kept for compatibility with original interface)
   static const double meanAge = 55.20091242;
   static const double meanGlucose = 118.84171002;
   static const double meanBMI = 29.44190236;
 
-  // SCALES (Standard Deviation)
   static const double scaleAge = 22.14295135;
   static const double scaleGlucose = 55.1206453;
   static const double scaleBMI = 6.5910676;
 
-  // --- 2. LOAD MODEL ---
   Future<void> initialize() async {
-    try {
-      // Must match the filename in assets/models/
-      _interpreter = await Interpreter.fromAsset('assets/models/stroke_prediction_model.tflite');
-      log("✅ ML Model Loaded Successfully");
-    } catch (e) {
-      log("❌ Failed to load model: $e");
-    }
+    // No real model to load in the stub.
+    _initialized = true;
+    log("ℹ️ MLService stub initialized (no tflite)");
   }
 
-  // --- 3. MAKE PREDICTION ---
   Future<double> predict({
     required double age,
-    required double avgGlucose, // We can default this if you don't collect it
+    required double avgGlucose,
     required double bmi,
     required bool isMale,
     required bool isMarried,
@@ -41,65 +33,45 @@ class MLService {
     required bool hasHypertension,
     required bool hasHeartDisease,
   }) async {
-    if (_interpreter == null) {
+    if (!_initialized) {
       throw Exception("Model not initialized. Call initialize() first.");
     }
 
-    // A. Preprocess Inputs (Scaling)
-    // We must scale the continuous values just like we did in Python!
-    double scaledAge = (age - meanAge) / scaleAge;
-    double scaledGlucose = (avgGlucose - meanGlucose) / scaleGlucose;
-    double scaledBMI = (bmi - meanBMI) / scaleBMI;
+    // Heuristic scoring (deterministic, bounded 0.0 - 1.0).
+    // This is only a placeholder — replace with your real model later.
+    double score = 0.0;
 
-    // B. Encode Categorical Data (One-Hot / Binary Encoding)
-    // The order MUST match exactly what you trained on:
-    // [gender, age, hypertension, heart_disease, ever_married, work_type, Residence_type, avg_glucose_level, bmi, smoking_status]
+    // Strong signals
+    if (hasHeartDisease) score += 0.18;
+    if (hasHypertension) score += 0.22;
+    if (isSmoker) score += 0.12;
 
-    // For this example, we use simple binary mapping.
-    // Note: If you used One-Hot Encoding in Python, you need multiple columns here.
-    // Assuming LabelEncoding from your previous snippet:
+    // Age factor (normalized between 18 and 100 -> scaled 0..0.25)
+    final ageNorm = ((age - 18.0) / (100.0 - 18.0)).clamp(0.0, 1.0);
+    score += ageNorm * 0.25;
 
-    double genderVal = isMale ? 0.0 : 1.0; // Male: 0, Female: 1
-    double marriedVal = isMarried ? 1.0 : 0.0;
-    double workTypeVal = 2.0; // Default to 'Private' (most common) to simplify manual input
-    double residenceVal = isUrban ? 1.0 : 0.0;
-    double smokingVal = isSmoker ? 1.0 : 0.0; // Smokes: 2, Never: 1... adjusted to your map
-    double hypertensionVal = hasHypertension ? 1.0 : 0.0;
-    double heartVal = hasHeartDisease ? 1.0 : 0.0;
+    // BMI factor: overweight increases risk (normalized 18..50 -> 0..0.15)
+    final bmiNorm = ((bmi - 18.0) / (50.0 - 18.0)).clamp(0.0, 1.0);
+    score += bmiNorm * 0.15;
 
-    // C. Create Input Tensor [1, 10]
-    // The shape is 1 row, 10 columns
-    var input = [
-      [
-        genderVal,        // 0
-        scaledAge,        // 1
-        hypertensionVal,  // 2
-        heartVal,         // 3
-        marriedVal,       // 4
-        workTypeVal,      // 5
-        residenceVal,     // 6
-        scaledGlucose,    // 7
-        scaledBMI,        // 8
-        smokingVal        // 9
-      ]
-    ];
+    // Avg glucose factor: normalized relative to meanGlucose and scale
+    final glucoseZ = ((avgGlucose - meanGlucose) / (scaleGlucose)).clamp(-3.0, 3.0);
+    // map z to small positive contribution
+    score += ((glucoseZ + 3) / 6) * 0.08; // ranges approx 0..0.08
 
-    // D. Create Output Tensor [1, 1]
-    // We expect a single probability value between 0 and 1
-    var output = List.filled(1 * 1, 0.0).reshape([1, 1]);
+    // Minor adjustments
+    if (!isUrban) score += 0.01; // slight rural/urban bias (example)
+    if (isMale) score += 0.01; // small gender bias
 
-    // E. Run Inference
-    _interpreter!.run(input, output);
+    // Clamp to valid probability
+    score = score.clamp(0.0, 1.0);
 
-    // F. Return Result
-    // The result is in the first list, first element
-    double probability = output[0][0];
-    log("🧠 Prediction Result: $probability");
-
-    return probability;
+    log("🧠 MLService (stub) prediction -> $score (age:$age, bmi:$bmi, glucose:$avgGlucose, smoker:$isSmoker, htn:$hasHypertension, heart:$hasHeartDisease)");
+    return score;
   }
 
   void dispose() {
-    _interpreter?.close();
+    _initialized = false;
+    log("ℹ️ MLService stub disposed");
   }
 }
