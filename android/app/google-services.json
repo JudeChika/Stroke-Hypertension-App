@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "969940299346",
+    "project_id": "stroke-hypertension-app",
+    "storage_bucket": "stroke-hypertension-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:969940299346:android:fd3080683b7d299924798b",
+        "android_client_info": {
+          "package_name": "com.example.stroke_hypertension_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAch3fJkPfQBQdms4gbOqAxPP394HSDy_M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
