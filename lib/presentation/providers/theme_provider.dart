@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // 1. The State Class (Manages the logic)
 class ThemeNotifier extends StateNotifier<ThemeMode> {

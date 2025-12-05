@@ -1,4 +1,3 @@
-// Update to rely on readings stream; on save we now pop back so stream updates the dashboard automatically.
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,11 +54,20 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
         systolic: _systolic,
         diastolic: _diastolic,
         riskScore: riskProbability,
+        age: _age,
+        bmi: _bmi,
       );
 
       if (mounted) {
         setState(() => _isCalculating = false);
-        // Pop back to dashboard (dashboard listens to the readings stream and will update automatically)
+        // Show confirmation and pop back so dashboard (stream) updates automatically
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Reading saved ✓'),
+            backgroundColor: AppTheme.primaryGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
         Navigator.pop(context);
       }
     } catch (e) {
@@ -72,14 +80,8 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
     }
   }
 
-  void _showResultDialog(double score) {
-    // unused now because we pop back, kept for completeness
-  }
-
   @override
   Widget build(BuildContext context) {
-    // (unchanged UI; same as before) ...
-    // We reuse your previous build() body but make sure the "View Dashboard" button (if shown) pops instead of pushing another instance.
     return Scaffold(
       appBar: AppBar(
         title: const Text("Log Vitals"),
@@ -100,10 +102,7 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
 
             const SizedBox(height: 24),
 
-            // BP sliders & other UI sections (kept same as before)...
-            // For brevity I will reuse the original helper methods already in file.
-            // Use the same widget tree as your existing screen — only the navigation after save changed.
-            // --- Card 1: Blood Pressure Sliders ---
+            // BP sliders
             _buildSectionCard(
               title: "Blood Pressure",
               icon: Icons.favorite_outline,
@@ -134,11 +133,13 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
 
             const SizedBox(height: 20),
 
+            // Age & BMI (now editable and saved)
             _buildSectionCard(
               title: "Risk Factors",
               icon: Icons.person_outline,
               child: Column(
                 children: [
+                  // Age slider
                   _buildSlider(
                     label: "Age",
                     value: _age,
@@ -149,6 +150,7 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
                     onChanged: (val) => setState(() => _age = val),
                   ),
                   const Divider(height: 30),
+                  // BMI slider
                   _buildSlider(
                     label: "BMI",
                     value: _bmi,
@@ -159,6 +161,7 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
                     onChanged: (val) => setState(() => _bmi = val),
                   ),
                   const Divider(height: 30),
+                  // Smoking Switch
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text("Do you smoke?", style: TextStyle(fontWeight: FontWeight.w600)),
@@ -200,7 +203,7 @@ class _ManualInputScreenState extends ConsumerState<ManualInputScreen> {
     );
   }
 
-  // Helper widgets (kept as-is from your previous implementation)
+  // Helper widget implementations (same logic as earlier)
   Widget _buildSectionCard({
     required String title,
     required IconData icon,

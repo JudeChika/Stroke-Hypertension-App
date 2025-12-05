@@ -1,4 +1,7 @@
-// It consumes readingsProvider and shows live data from Firestore.
+// Updated DashboardScreen with new "Hypertension Analysis" card.
+// Overwrite existing file at lib/presentation/screens/dashboard/dashboard_screen.dart
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +10,7 @@ import '../../../core/theme/app_theme.dart';
 import '../manual_input/manual_input_screen.dart';
 import '../auth/login_screen.dart';
 import '../../providers/reading_provider.dart';
+import '../../providers/user_provider.dart';
 import '../history/history_screen.dart';
 import '../../../data/models/reading_model.dart';
 
@@ -18,7 +22,12 @@ class DashboardScreen extends ConsumerWidget {
     final size = MediaQuery.of(context).size;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Read readings stream (existing)
     final readingsAsync = ref.watch(readingsProvider);
+
+    // Read user stream to get the name
+    final userAsync = ref.watch(userStreamProvider);
+    final firstName = userAsync.value?.fullName.trim().split(' ').first ?? 'User';
 
     return Scaffold(
       appBar: AppBar(
@@ -37,7 +46,6 @@ class DashboardScreen extends ConsumerWidget {
       ),
       body: readingsAsync.when(
         data: (readings) {
-          // Determine displayed values from latest reading or fallback to zeros
           final ReadingModel? latest = readings.isNotEmpty ? readings.first : null;
           final riskScore = latest?.riskScore ?? 0.0;
           final riskLabel = riskScore > 0.7 ? 'High Risk' : (riskScore > 0.4 ? 'Moderate Risk' : 'Low Risk');
@@ -49,12 +57,25 @@ class DashboardScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    "Hello, User 👋",
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ).animate().fadeIn(duration: 500.ms).slideX(begin: -0.1),
+                  // Greeting Area — personalized with waving emoji
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Hello, $firstName 👋",
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ).animate().fadeIn(duration: 500.ms).slideX(begin: -0.1),
+                      CircleAvatar(
+                        backgroundColor: AppTheme.primaryGreenLight,
+                        child: Text(
+                          firstName.isNotEmpty ? firstName[0].toUpperCase() : 'U',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ).animate().fadeIn(delay: 200.ms),
+                    ],
+                  ),
 
                   const SizedBox(height: 5),
 
@@ -148,7 +169,12 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ).animate().slideY(begin: 0.2, duration: 600.ms, curve: Curves.easeOut),
 
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 20),
+
+                  // NEW: Hypertension Analysis Card (uses recent readings)
+                  _buildHypertensionAnalysisCard(context, readings),
+
+                  const SizedBox(height: 20),
 
                   // Quick Actions Grid
                   Text(
@@ -206,7 +232,6 @@ class DashboardScreen extends ConsumerWidget {
 
                   const SizedBox(height: 10),
 
-                  // If there are no readings show a helpful message
                   if (readings.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(20),
@@ -248,7 +273,7 @@ class DashboardScreen extends ConsumerWidget {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text('${r.systolic.toInt()}/${r.diastolic.toInt()} mmHg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                      Text(_formatDate(r.timestamp), style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                                      Text("${_formatDate(r.timestamp)}", style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12)),
                                     ],
                                   ),
                                 ],
@@ -280,8 +305,162 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
+  // --- Hypertension Analysis Card ---
+  Widget _buildHypertensionAnalysisCard(BuildContext context, List<ReadingModel> readings) {
+    // Use up to last 5 readings for the analysis
+    final recent = readings.take(5).toList();
+    if (recent.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Hypertension Analysis", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            SizedBox(height: 8),
+            Text("No blood pressure readings yet. Tap 'Log BP' to add readings and see analysis."),
+          ],
+        ),
+      );
+    }
+
+    // Compute averages
+    final avgSys = recent.map((r) => r.systolic).reduce((a, b) => a + b) / recent.length;
+    final avgDia = recent.map((r) => r.diastolic).reduce((a, b) => a + b) / recent.length;
+
+    // Count abnormal readings (systolic >= 130 or diastolic >= 80)
+    final abnormalCount = recent.where((r) => r.systolic >= 130 || r.diastolic >= 80).length;
+
+    // Heuristic risk percent: proportion of abnormal readings, weighted by severity
+    double severitySum = 0;
+    for (var r in recent) {
+      final s = r.systolic;
+      final d = r.diastolic;
+      if (s >= 180 || d >= 120) {
+        severitySum += 1.0; // crisis
+      } else if (s >= 140 || d >= 90) {
+        severitySum += 0.9; // stage 2
+      } else if (s >= 130 || d >= 80) {
+        severitySum += 0.6; // stage 1
+      } else if (s >= 120 && d < 80) {
+        severitySum += 0.2; // elevated
+      } else {
+        severitySum += 0.0; // normal
+      }
+    }
+    final riskPercent = (severitySum / recent.length).clamp(0.0, 1.0);
+
+    // Classify based on averages (AHA-like)
+    final classification = _classifyBP(avgSys, avgDia);
+    final classColor = _colorForClassification(classification);
+
+    // Short recommendation text
+    final recommendation = _recommendationForClassification(classification);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("Hypertension Analysis", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              // Percent indicator (small)
+              CircularPercentIndicator(
+                radius: 42,
+                lineWidth: 6,
+                percent: riskPercent,
+                center: Text('${(riskPercent * 100).toInt()}%'),
+                progressColor: classColor,
+                backgroundColor: Colors.grey.shade200,
+              ),
+              const SizedBox(width: 12),
+              // Summary column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      classification,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: classColor),
+                    ),
+                    const SizedBox(height: 6),
+                    Text("Average: ${avgSys.toStringAsFixed(0)}/${avgDia.toStringAsFixed(0)} mmHg"),
+                    const SizedBox(height: 4),
+                    Text("Recent abnormal: $abnormalCount of ${recent.length} readings"),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(recommendation, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                // Quick action: navigate to Log BP screen
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const ManualInputScreen()));
+              },
+              child: const Text("Log new reading"),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Classify average BP using AHA-like categories
+  String _classifyBP(double sys, double dia) {
+    if (sys > 180 || dia > 120) return 'Hypertensive Crisis';
+    if (sys >= 140 || dia >= 90) return 'Stage 2 Hypertension';
+    if (sys >= 130 || dia >= 80) return 'Stage 1 Hypertension';
+    if (sys >= 120 && dia < 80) return 'Elevated';
+    return 'Normal';
+  }
+
+  Color _colorForClassification(String cls) {
+    switch (cls) {
+      case 'Hypertensive Crisis':
+        return Colors.red.shade700;
+      case 'Stage 2 Hypertension':
+        return Colors.redAccent;
+      case 'Stage 1 Hypertension':
+        return Colors.orange;
+      case 'Elevated':
+        return AppTheme.secondaryYellow;
+      default:
+        return AppTheme.primaryGreen;
+    }
+  }
+
+  String _recommendationForClassification(String cls) {
+    switch (cls) {
+      case 'Hypertensive Crisis':
+        return 'This is an emergency. Seek urgent medical attention or call emergency services if you have symptoms (chest pain, severe headache, vision changes).';
+      case 'Stage 2 Hypertension':
+        return 'High blood pressure detected across recent readings. Please contact your healthcare provider promptly.';
+      case 'Stage 1 Hypertension':
+        return 'Elevated readings. Schedule a check with your provider and continue monitoring. Lifestyle changes may help.';
+      case 'Elevated':
+        return 'Slightly elevated blood pressure. Re-check in a few days and make lifestyle adjustments (reduce salt, exercise).';
+      default:
+        return 'Your recent readings are within the normal range. Keep monitoring and maintain a healthy lifestyle.';
+    }
+  }
+
   String _formatDate(DateTime dt) {
-    // Friendly short format
     return '${dt.day}/${dt.month}/${dt.year} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
