@@ -1,5 +1,3 @@
-// Updated DashboardScreen with new "Hypertension Analysis" card.
-// Overwrite existing file at lib/presentation/screens/dashboard/dashboard_screen.dart
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -8,11 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import '../../../core/theme/app_theme.dart';
 import '../manual_input/manual_input_screen.dart';
-import '../auth/login_screen.dart';
 import '../../providers/reading_provider.dart';
 import '../../providers/user_provider.dart';
 import '../history/history_screen.dart';
 import '../../../data/models/reading_model.dart';
+import '../../../data/repositories/auth_repository.dart'; // Import AuthRepository
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -33,15 +31,36 @@ class DashboardScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text("Dashboard"),
         actions: [
+          // LOGOUT BUTTON WITH CONFIRMATION
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: "Logout",
+            onPressed: () async {
+              final shouldLogout = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Log Out"),
+                  content: const Text("Are you sure you want to log out?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text("Log Out", style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
               );
+
+              if (shouldLogout == true) {
+                // This triggers the AuthGate to rebuild and show LoginScreen automatically
+                await ref.read(authRepositoryProvider).logout();
+              }
             },
-          )
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: readingsAsync.when(
@@ -49,6 +68,7 @@ class DashboardScreen extends ConsumerWidget {
           final ReadingModel? latest = readings.isNotEmpty ? readings.first : null;
           final riskScore = latest?.riskScore ?? 0.0;
           final riskLabel = riskScore > 0.7 ? 'High Risk' : (riskScore > 0.4 ? 'Moderate Risk' : 'Low Risk');
+          // Color logic
           final riskColor = riskScore > 0.7 ? Colors.redAccent : (riskScore > 0.4 ? AppTheme.secondaryYellow : AppTheme.primaryGreen);
 
           return SingleChildScrollView(
@@ -273,7 +293,7 @@ class DashboardScreen extends ConsumerWidget {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text('${r.systolic.toInt()}/${r.diastolic.toInt()} mmHg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                      Text("${_formatDate(r.timestamp)}", style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12)),
+                                      Text(_formatDate(r.timestamp), style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 12)),
                                     ],
                                   ),
                                 ],

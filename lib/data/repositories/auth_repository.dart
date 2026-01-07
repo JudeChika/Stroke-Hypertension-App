@@ -23,7 +23,6 @@ class AuthRepository {
     try {
       log("🔄 Attempting to create user: $email");
 
-      // Add timeout to prevent infinite hanging
       final result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -37,7 +36,6 @@ class AuthRepository {
 
       log("✅ Auth User Created: ${result.user!.uid}");
 
-      // Create User Document in Firestore with timeout
       UserModel newUser = UserModel(
         uid: result.user!.uid,
         email: email,
@@ -68,10 +66,7 @@ class AuthRepository {
       throw 'Database error: ${e.message ?? "Failed to save user data"}';
     } catch (e, stackTrace) {
       log("❌ Unexpected Error: $e", stackTrace: stackTrace);
-
-      // If it's our custom timeout message, rethrow it
       if (e is String) rethrow;
-
       throw 'An unexpected error occurred. Please try again.';
     }
   }
@@ -100,6 +95,21 @@ class AuthRepository {
       log("❌ Login Error: $e");
       if (e is String) rethrow;
       throw 'Login failed. Please try again.';
+    }
+  }
+
+  // --- NEW: Send Password Reset Email ---
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      log("🔄 Sending password reset email to: $email");
+      await _auth.sendPasswordResetEmail(email: email);
+      log("✅ Password reset email sent");
+    } on FirebaseAuthException catch (e) {
+      log("❌ Reset Password Error: ${e.code} - ${e.message}");
+      throw _handleAuthError(e);
+    } catch (e) {
+      log("❌ Reset Password Error: $e");
+      throw 'Failed to send reset email. Please try again.';
     }
   }
 

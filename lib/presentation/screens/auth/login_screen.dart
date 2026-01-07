@@ -1,13 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Import for AutofillHints
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:stroke_hypertension_app/presentation/screens/auth/signup_screen.dart';
+import 'package:stroke_hypertension_app/presentation/screens/auth/forgot_password_screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/auth_repository.dart';
-import '../dashboard/dashboard_screen.dart'; // We will create this next
+import '../dashboard/dashboard_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  // Add optional parameters to receive data from SignUpScreen
+  final String? initialEmail;
+  final String? initialPassword;
+
+  const LoginScreen({
+    super.key,
+    this.initialEmail,
+    this.initialPassword
+  });
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -16,12 +26,19 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers to capture user input
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  late TextEditingController _emailController;
+  late TextEditingController _passwordController;
 
   bool _isLoading = false;
   bool _isPasswordVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize with passed values or empty string
+    _emailController = TextEditingController(text: widget.initialEmail);
+    _passwordController = TextEditingController(text: widget.initialPassword);
+  }
 
   @override
   void dispose() {
@@ -30,9 +47,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  // --- Logic: Mock Login Function ---
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
+      // Save form to trigger autofill save on success
+      TextInput.finishAutofillContext();
+
       setState(() => _isLoading = true);
 
       try {
@@ -41,10 +60,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           password: _passwordController.text.trim(),
         );
 
+        // Navigation handled by AuthGate usually, but providing feedback/fallback here
         if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Login Successful!"), backgroundColor: Colors.green),
           );
         }
       } catch (e) {
@@ -61,22 +80,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Determine screen size for responsive layout
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
-      // Allow the body to scroll so the keyboard doesn't hide inputs
       body: SingleChildScrollView(
         child: SizedBox(
           height: size.height,
           child: Stack(
             children: [
-              // --- 1. The Green Curved Header ---
+              // --- 1. Header (Same as before) ---
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                height: size.height * 0.35, // Takes top 35%
+                height: size.height * 0.35,
                 child: Container(
                   decoration: const BoxDecoration(
                     color: AppTheme.primaryGreen,
@@ -90,8 +107,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(Icons.lock_person_outlined, size: 60, color: Colors.white)
-                            .animate()
-                            .scale(duration: 500.ms, curve: Curves.easeOutBack),
+                            .animate().scale(duration: 500.ms, curve: Curves.easeOutBack),
                         const SizedBox(height: 10),
                         Text(
                           "Welcome Back",
@@ -105,7 +121,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
 
-              // --- 2. The Back Button (Top Left) ---
               Positioned(
                 top: 50,
                 left: 20,
@@ -115,121 +130,100 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
 
-              // --- 2. The Form Card ---
+              // --- 2. Form Card with Autofill ---
               Positioned(
-                top: size.height * 0.28, // Overlap the header slightly
+                top: size.height * 0.28,
                 left: 20,
                 right: 20,
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface, // Auto Light/Dark
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
-                      ),
+                      BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10)),
                     ],
                   ),
                   child: Form(
                     key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          "Sign In",
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: AppTheme.primaryGreen,
-                            fontWeight: FontWeight.bold,
+                    // Wrap in AutofillGroup to enable OS password managers
+                    child: AutofillGroup(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            "Sign In",
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: AppTheme.primaryGreen,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 30),
+                          const SizedBox(height: 30),
 
-                        // --- Email Field ---
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: "Email Address",
-                            prefixIcon: Icon(Icons.email_outlined, color: AppTheme.primaryGreen),
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            // Add Autofill Hint
+                            autofillHints: const [AutofillHints.email],
+                            decoration: const InputDecoration(
+                              labelText: "Email Address",
+                              prefixIcon: Icon(Icons.email_outlined, color: AppTheme.primaryGreen),
+                            ),
+                            validator: (value) => (value == null || !value.contains('@')) ? 'Please enter a valid email' : null,
                           ),
-                          validator: (value) {
-                            if (value == null || !value.contains('@')) {
-                              return 'Please enter a valid email';
-                            }
-                            return null;
-                          },
-                        ).animate().slideX(begin: -0.2, duration: 400.ms),
 
-                        const SizedBox(height: 20),
+                          const SizedBox(height: 20),
 
-                        // --- Password Field ---
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: !_isPasswordVisible,
-                          decoration: InputDecoration(
-                            labelText: "Password",
-                            prefixIcon: const Icon(Icons.key_outlined, color: AppTheme.primaryGreen),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                                color: Colors.grey,
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: !_isPasswordVisible,
+                            // Add Autofill Hint
+                            autofillHints: const [AutofillHints.password],
+                            decoration: InputDecoration(
+                              labelText: "Password",
+                              prefixIcon: const Icon(Icons.key_outlined, color: AppTheme.primaryGreen),
+                              suffixIcon: IconButton(
+                                icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.grey),
+                                onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                               ),
+                            ),
+                            validator: (value) => (value == null || value.length < 6) ? 'Password must be 6+ characters' : null,
+                          ),
+
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
                               onPressed: () {
-                                setState(() {
-                                  _isPasswordVisible = !_isPasswordVisible;
-                                });
+                                Navigator.push(context, MaterialPageRoute(builder: (context) => const ForgotPasswordScreen()));
                               },
+                              child: const Text("Forgot Password?", style: TextStyle(color: AppTheme.textGrey)),
                             ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.length < 6) {
-                              return 'Password must be 6+ characters';
-                            }
-                            return null;
-                          },
-                        ).animate().slideX(begin: -0.2, delay: 100.ms, duration: 400.ms),
 
-                        // --- Forgot Password ---
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () {
-                              // Navigate to Reset Password
-                            },
-                            child: const Text(
-                              "Forgot Password?",
-                              style: TextStyle(color: AppTheme.textGrey),
+                          const SizedBox(height: 20),
+
+                          SizedBox(
+                            height: 55,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _handleLogin,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.secondaryYellow,
+                                foregroundColor: AppTheme.textBlack,
+                              ),
+                              child: _isLoading
+                                  ? const CircularProgressIndicator(color: AppTheme.textBlack)
+                                  : const Text("LOGIN"),
                             ),
                           ),
-                        ),
-
-                        const SizedBox(height: 20),
-
-                        // --- Login Button ---
-                        SizedBox(
-                          height: 55,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.secondaryYellow, // Vibrant Yellow
-                              foregroundColor: AppTheme.textBlack,
-                            ),
-                            child: _isLoading
-                                ? const CircularProgressIndicator(color: AppTheme.textBlack)
-                                : const Text("LOGIN"),
-                          ),
-                        ).animate().slideY(begin: 0.5, delay: 200.ms, curve: Curves.easeOut),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.1),
               ),
 
-              // --- 3. Footer (Sign Up Link) ---
+              // --- 3. Footer ---
               Positioned(
                 bottom: 30,
                 left: 0,
@@ -240,22 +234,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const Text("Don't have an account? "),
                     GestureDetector(
                       onTap: () {
-                        // Navigate to Sign Up Screen
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const SignUpScreen()),
-                        );
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const SignUpScreen()));
                       },
-                      child: const Text(
-                        "Sign Up",
-                        style: TextStyle(
-                          color: AppTheme.primaryGreen,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      child: const Text("Sign Up", style: TextStyle(color: AppTheme.primaryGreen, fontWeight: FontWeight.bold)),
                     ),
                   ],
-                ).animate().fadeIn(delay: 800.ms),
+                ),
               ),
             ],
           ),
